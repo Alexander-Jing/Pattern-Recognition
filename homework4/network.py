@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy import linalg
+import math
 
 class node():
     """The nodes for every node in the layers
@@ -37,12 +38,12 @@ class node():
             LayNum(int): the number of nodes in the next layer 
             ActFunc(string): the mode of activation function 
         """
-        self.bias = np.random.rand(1)[0]
+        self.bias = np.random.rand(1)[0].astype(np.float32)
         self.value = 0.1  # the value before the activation function of the node 
         self.delta = 0.1
         if LayNum>0:
-            self.weights = np.random.rand(1,LayNum)[0]  # the weights connected nodes of next layer
-            self.weights_modified  =  0.1* np.random.rand(1,LayNum)[0]  # the modification for the weights, used to be recorded during the train process
+            self.weights = np.random.rand(1,LayNum)[0].astype(np.float32)  # the weights connected nodes of next layer
+            self.weights_modified  =  0.1* np.random.rand(1,LayNum)[0].astype(np.float32)  # the modification for the weights, used to be recorded during the train process
         #self.output = self.ActivateFunc(self.value,ActFunc)  # the output of the node after activation function 
         #self.diff = self.ActivateFuncDiff(self.value,ActFunc)  # the output of the node in the differential activation function, used for back propagation 
 
@@ -65,14 +66,23 @@ class NetStructure():
 
         """
         # set the input layer 
-        InputNode = node(LayNum=8,ActFunc="input")
-        self.Inputlayer = [InputNode for _ in range(3)] 
+        InputNode1 = node(LayNum=5,ActFunc="input")
+        InputNode2 = node(LayNum=5,ActFunc="input")
+        InputNode3 = node(LayNum=5,ActFunc="input")
+
+        self.Inputlayer = [InputNode1,InputNode2,InputNode3] 
         # set the hidden layer 
-        HiddenNode = node(LayNum=3,ActFunc="tanh")
-        self.HiddenLayer = [HiddenNode for _ in range(8)]
+        HiddenNode1 = node(LayNum=3,ActFunc="tanh")
+        HiddenNode2 = node(LayNum=3,ActFunc="tanh")
+        HiddenNode3 = node(LayNum=3,ActFunc="tanh")
+        HiddenNode4 = node(LayNum=3,ActFunc="tanh")
+        HiddenNode5 = node(LayNum=3,ActFunc="tanh")
+        self.HiddenLayer = [HiddenNode1,HiddenNode2,HiddenNode3,HiddenNode4,HiddenNode5 ]
         # set the output layer
-        OutputNode = node(LayNum=0,ActFunc="sigmoid")
-        self.OutputLayer = [OutputNode for _ in range(3)]
+        OutputNode1 = node(LayNum=0,ActFunc="sigmoid")
+        OutputNode2 = node(LayNum=0,ActFunc="sigmoid")
+        OutputNode3 = node(LayNum=0,ActFunc="sigmoid")
+        self.OutputLayer = [OutputNode1,OutputNode2,OutputNode3]
     
     def ActivateFunc(self,x,ActFunc):
         """the activation function 
@@ -88,7 +98,8 @@ class NetStructure():
         if (ActFunc=="sigmoid"):
             return 1/(1+np.exp(-x))
         if (ActFunc=="tanh"):
-            return (np.exp(x)-np.exp(-x))/(np.exp(x)+np.exp(-x))
+            tanh = (np.exp(2*x)-1)/(np.exp(2*x)+1)
+            return tanh
     
     def ActivateFuncDiff(self,x,ActFunc):
         """the differential activation function, used for backward propagation 
@@ -102,9 +113,12 @@ class NetStructure():
         if (ActFunc=="input"):  # without the activation function
             return 1
         if (ActFunc=="sigmoid"):
-            return 1/(1+np.exp(-x))*(1-1/(1+np.exp(-x)))
+            sig = 1/(1+np.exp(-x))
+            return sig*(1-sig)
         if (ActFunc=="tanh"):
-            return 1 - (np.exp(x)-np.exp(-x))/(np.exp(x)+np.exp(-x))**2
+           
+            tanh = (np.exp(2*x)-1)/(np.exp(2*x)+1)
+            return 1 - tanh**2
 
     def forward(self,input_x):
         """forward calculation of the network
@@ -119,17 +133,22 @@ class NetStructure():
             
         # calculation for the hidden layers
         for j in range(len(self.HiddenLayer)):
+            value = 0
             for k in range(len(self.Inputlayer)):
-                self.HiddenLayer[j].value += self.ActivateFunc(self.Inputlayer[k].value,"input") * self.Inputlayer[k].weights[j]  # calculate the value of the hidden layers' nodes
+                value += self.ActivateFunc(self.Inputlayer[k].value,"input") * self.Inputlayer[k].weights[j]  # calculate the value of the hidden layers' nodes
+            self.HiddenLayer[j].value = value
             self.HiddenLayer[j].value += self.HiddenLayer[j].bias  # don't forget the bias
             
         # calculation for the output layers
-        for k in range(len(self.OutputLayer)):
+        for m in range(len(self.OutputLayer)):
+            value = 0
             for l in range(len(self.HiddenLayer)):
-                self.OutputLayer[k].value += self.ActivateFunc(self.HiddenLayer[l].value,"tanh") * self.HiddenLayer[l].weights[k]
-            self.OutputLayer[k].value += self.OutputLayer[k].bias
+                value += self.ActivateFunc(self.HiddenLayer[l].value,"tanh") * self.HiddenLayer[l].weights[m]
+            self.OutputLayer[m].value = value
+            self.OutputLayer[m].value += self.OutputLayer[m].bias
             
-        output_y = [self.ActivateFunc(self.OutputLayer[k].value,"sigmoid") for i in range(len(self.OutputLayer))]
+        output_y = [self.ActivateFunc(self.OutputLayer[n].value,"sigmoid") for n in range(len(self.OutputLayer))]
+        #print(output_y)
         return output_y  
     
     def backward(self,input_x,samples_y,update =1,eta = 0.1):
@@ -145,11 +164,11 @@ class NetStructure():
         for i in range(len(self.OutputLayer)):
             self.OutputLayer[i].delta = self.ActivateFuncDiff(self.OutputLayer[i],"input") * (samples_y[i] - output_y[i])  # calculate the delta for each output node
         
-        OutputLayer_delta = np.array([self.OutputLayer[i].delta for i in range(len(self.OutputLayer))])  # record the delta in the output layer for further use
+        OutputLayer_delta = np.array([self.OutputLayer[i1].delta for i1 in range(len(self.OutputLayer))])  # record the delta in the output layer for further use
         
         for j in range(len(self.HiddenLayer)):
-            self.HiddenLayer[j].weights_modified += np.array([eta*self.ActivateFunc(self.HiddenLayer[j].value,"tanh")*\
-                self.OutputLayer[k].delta for k in range(len(self.OutputLayer))])  # calculate and record the modification of the weights
+            self.HiddenLayer[j].weights_modified = np.array([eta*self.ActivateFunc(self.HiddenLayer[j].value,"tanh")*\
+                self.OutputLayer[k1].delta for k1 in range(len(self.OutputLayer))])  # calculate and record the modification of the weights
             if update != 0:  # whether or not update the weights
                 self.HiddenLayer[j].weights += self.HiddenLayer[j].weights_modified
 
@@ -159,7 +178,7 @@ class NetStructure():
                 np.dot(self.HiddenLayer[k].weights,OutputLayer_delta)
         
         for l in range(len(self.Inputlayer)):
-            self.Inputlayer[l].weights_modified += np.array([eta*self.ActivateFunc(self.Inputlayer[l].value,"input")*\
+            self.Inputlayer[l].weights_modified = np.array([eta*self.ActivateFunc(self.Inputlayer[l].value,"input")*\
                 self.HiddenLayer[m].delta for m in range(len(self.HiddenLayer))])
             if update != 0:
                 self.Inputlayer[l].weights += self.Inputlayer[l].weights_modified
@@ -182,7 +201,7 @@ class NetStructure():
             loss = 0
             for j in range(len(input_set)):
                 loss += np.linalg.norm(np.array(self.forward(input_set[j]))-np.array(samples[j]))**2
-            losses.append(loss)
+            losses.append(loss/len(input_set))
             
         plt.plot([i for i in range(1,len(losses)+1)],losses)
         plt.xlabel("training times")
@@ -204,12 +223,12 @@ class NetStructure():
             batch = np.random.randint(0,len(input_set),batch_size)
             for i in range(batch.shape[0]):
                 if i==batch_size-1:
-                    self.backward(input_set[ batch[i] ],samples[ batch[i] ],update=1, eta=0.1)  # the weights will be updated in the last train of the batch 
+                    self.backward(input_set[ batch[i] ],samples[ batch[i] ],update=1, eta=rate)  # the weights will be updated in the last train of the batch 
                     # calculate the loss
                     loss = 0
                     for j in range(len(input_set)):
                         loss += np.linalg.norm(np.array(self.forward(input_set[j]))-np.array(samples[j]))**2
-                    losses.append(loss)
+                    losses.append(loss/len(input_set))
                 else:
                     self.backward(input_set[ batch[i] ],samples[ batch[i] ],update=0, eta=0.1)
                 

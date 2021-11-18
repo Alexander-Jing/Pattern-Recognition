@@ -25,4 +25,4 @@ if __name__ == '__main__':
     #print(train_label)
 
     HM4net = NetStructure()
-    HM4net.train_batch(train_data,train_label,epoch=10,rate=0.01)
+    HM4net.train_batch(train_data,train_label,epoch=100,rate=0.1)
