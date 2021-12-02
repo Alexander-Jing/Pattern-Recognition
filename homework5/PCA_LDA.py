@@ -13,6 +13,7 @@ def PCA(data,dim):
     
     returns:
         data_pca(array): the data after PCA
+        w(array, eigen_value[1][:, eigen_value[1].shape[1]-i : eigen_value[1].shape[1]]): the w for PCA
     """
     data_cov = (1/data.shape[0]) * \
             np.dot((data-np.mean(data,axis=0)).T,(data-np.mean(data,axis=0)))  # calculate the cov matrix
@@ -25,7 +26,8 @@ def PCA(data,dim):
             print("successfully make the PCA manipulation")
             print("dimension: %2d"%i)
             print("rate: ",yita)  # calculate the rate
-            return data_pca
+            w = eigen_value[1][:, eigen_value[1].shape[1]-i : eigen_value[1].shape[1]]
+            return w, data_pca
     
 def LDA(data_all,data_types,dim):
     """LDA
@@ -38,6 +40,7 @@ def LDA(data_all,data_types,dim):
         dim(int): the dim of the LDA directions, take care  dim <= (num of labels)-1  (https://blog.csdn.net/u013719780/article/details/78312165)
     return:
         data_lda(array): data after LDA
+        w(array, eigen_value[1][:, eigen_value[1].shape[1]-i : eigen_value[1].shape[1]]): the w for LDA
     """
     # calculate the S_t
     S_t = (1/data_all.shape[0]) * \
@@ -57,7 +60,8 @@ def LDA(data_all,data_types,dim):
             data_lda = np.dot(data_all, eigen_value[1][:, eigen_value[1].shape[1]-i : eigen_value[1].shape[1]])
             print("successfully make the LDA manipulation")
             print("dimension: %2d"%i)
-            return data_lda
+            w = eigen_value[1][:, eigen_value[1].shape[1]-i : eigen_value[1].shape[1]]
+            return w, data_lda
 
 def KNN(data_trains,data_tests,label_train,label_test):
     """KNN model (k=1)
@@ -101,18 +105,16 @@ def test(train_data,test_data,data_types,pca_dim,lda_dim):
         show the test result 
     """
     # the pca part
-    train_all_pca = PCA(np.vstack((train_data[:,0:-1],test_data[:,0:-1])),pca_dim)
-    train_data_pca = train_all_pca[0:train_data.shape[0],:]
-    test_data_pca = train_all_pca[train_data.shape[0]:,:]
+    w,train_data_pca = PCA(train_data[:,0:-1],pca_dim)
+    test_data_pca = np.dot(test_data[:,0:-1],w)
     train_label_pca = train_data[:,-1]
     test_label_pca = test_data[:,-1]
     _,acc_pca = KNN(train_data_pca,test_data_pca,train_label_pca,test_label_pca)
     
 
     # the lda part
-    train_all_lda = LDA(np.vstack((train_data[:,0:-1],test_data[:,0:-1])),data_types,lda_dim)
-    train_data_lda = train_all_lda[0:train_data.shape[0],:]
-    test_data_lda = train_all_lda[train_data.shape[0]:,:]
+    w,train_data_lda = LDA(train_data[:,0:-1],data_types,lda_dim)
+    test_data_lda = np.dot(test_data[:,0:-1],w)
     train_label_lda = train_data[:,-1]
     test_label_lda = test_data[:,-1]
     _,acc_lda = KNN(train_data_lda,test_data_lda,train_label_lda,test_label_lda)
@@ -147,12 +149,14 @@ if __name__ == '__main__':
     print("the dataset ORLData_25.mat\n")
     acc_pcas = []
     acc_ldas = []
-    for i in range(1,51+1):
-        acc_pca,acc_lda = test(ORL_train,ORl_test,data_types,5*i,5*i)
+    # take care, the LDA dim shouldn't be larger than the num of types (dim <= types)
+    # take care, it's better not to make PCA dim larger than the total num of the datas (dim<total num of the datas), or it will be linear dependent
+    for i in range(1,40):  
+        acc_pca,acc_lda = test(ORL_train,ORl_test,data_types,5*i,i)
         acc_pcas.append(acc_pca)
         acc_ldas.append(acc_lda)
     plt.plot([5*j for j in range(1,len(acc_pcas)+1)],acc_pcas,label="acc_pca")
-    plt.plot([5*j for j in range(1,len(acc_ldas)+1)],acc_ldas,label="acc_lda")
+    plt.plot([j for j in range(1,len(acc_ldas)+1)],acc_ldas,label="acc_lda")
     plt.xlabel("dimension")
     plt.ylabel("accuracy")
     plt.title("test result on different dimensions of PCA/LDA ORLData_25")
@@ -172,12 +176,20 @@ if __name__ == '__main__':
     print("the dataset vehicle.mat\n")
     acc_pcas = []
     acc_ldas = []
-    for i in range(1,17+1):
-        acc_pca,acc_lda = test(VelData[0:676,:],VelData[677:,:],data_types,i,i)
-        acc_pcas.append(acc_pca)
-        acc_ldas.append(acc_lda)
-    plt.plot([j for j in range(1,len(acc_pcas)+1)],acc_pcas,label="acc_pca")
-    plt.plot([j for j in range(1,len(acc_ldas)+1)],acc_ldas,label="acc_lda")
+    # take care, the LDA dim shouldn't be larger than the num of types (dim <= types)
+    # take care, it's better not to make PCA dim larger than the total num of the datas(dim<total num of the datas), or it will be linear dependent
+    for i in range(0,int(np.max(VelData[:,-1]))):
+        if i==0: 
+            acc_pca,acc_lda = test(VelData[0:676,:],VelData[677:,:],data_types,1,1)
+            acc_pcas.append(acc_pca)
+            acc_ldas.append(acc_lda)
+        else:
+            acc_pca,acc_lda = test(VelData[0:676,:],VelData[677:,:],data_types,5*i,i)
+            acc_pcas.append(acc_pca)
+            acc_ldas.append(acc_lda)
+
+    plt.plot([1]+[5*j for j in range(1,len(acc_pcas))],acc_pcas,label="acc_pca")
+    plt.plot([1]+[j for j in range(1,len(acc_ldas))],acc_ldas,label="acc_lda")
     plt.xlabel("dimension")
     plt.ylabel("accuracy")
     plt.title("test result on different dimensions of PCA/LDA vehicle")
